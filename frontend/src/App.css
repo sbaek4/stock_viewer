@@ -1,17 +1,47 @@
 .app {
-  max-width: 1100px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px;
   font-family: "Segoe UI", sans-serif;
+  color: #f3f4f6;
 }
 
-.sub {
-  margin-top: -4px;
-  color: #4b5563;
+.hero {
+  margin-bottom: 12px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.hero h1 {
+  margin: 8px 0;
+  font-size: 52px;
+  line-height: 1;
+}
+
+.price-row {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+
+.price-row strong {
+  font-size: 40px;
+}
+
+.up {
+  color: #18c964;
+}
+
+.down {
+  color: #f31260;
 }
 
 .controls {
-  margin-top: 18px;
+  margin-top: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -25,25 +55,34 @@ form {
 }
 
 input {
-  width: 220px;
+  width: 260px;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #374151;
   border-radius: 10px;
+  background: #161b22;
+  color: #f3f4f6;
 }
 
 button {
-  border: none;
+  border: 1px solid #2d3748;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #1d4ed8;
-  color: white;
+  background: #111827;
+  color: #e5e7eb;
   cursor: pointer;
 }
 
 .toggles {
   display: flex;
   gap: 16px;
-  color: #374151;
+  color: #d1d5db;
+}
+
+.robinhood-toggle label {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 9999px;
+  padding: 6px 12px;
 }
 
 .headline {
@@ -54,13 +93,87 @@ button {
 }
 
 .error {
-  color: #b91c1c;
+  color: #ff6b97;
 }
 
 .chart-card {
   margin-top: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 14px;
-  background: #ffffff;
+  background: #0f131a;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.range-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.pill {
+  font-size: 12px;
+  color: #9ca3af;
+  border: 1px solid #1f2937;
+  padding: 4px 8px;
+  border-radius: 9999px;
+}
+
+.pill.active {
+  color: #111827;
+  background: #18c964;
+  border-color: #18c964;
+}
+
+.compare-card {
+  margin-bottom: 20px;
+}
+
+.subtle {
+  color: #9ca3af;
+}
+
+.compare-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.compare-box {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #0b0f15;
+}
+
+.compare-box h3 {
+  margin-top: 0;
+}
+
+.webhook-tools {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.events {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.event-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 8px 10px;
 }

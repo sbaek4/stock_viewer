@@ -7,6 +7,7 @@ describe("GET /api/health", () => {
     const { app } = createStockServer({
       FRONTEND_ORIGIN: "http://localhost:5173",
       FINNHUB_API_KEY: "",
+      FINNHUB_WEBHOOK_SECRET: "",
     });
 
     const response = await request(app).get("/api/health");

@@ -19,6 +19,6 @@ vi.mock("axios", () => ({
 describe("App", () => {
   it("renders dashboard title", async () => {
     render(<App />);
-    expect(await screen.findByText("Realtime Stock Viewer")).toBeInTheDocument();
+    expect(await screen.findByText("Realtime market tracker")).toBeInTheDocument();
   });
 });

@@ -24,6 +24,20 @@ type DataPoint = {
   histogram: number | null;
 };
 
+type WebhookEvent = {
+  id: string;
+  receivedAt: number;
+  source: string;
+  payload: unknown;
+};
+
+type CompareResponse = {
+  websocket: { enabled: boolean; transport: string; bestFor: string[] };
+  webhook: { enabled: boolean; transport: string; bestFor: string[] };
+  recentWebhookCount: number;
+  lastWebhookAt: number | null;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
 function formatTime(unix: number) {
@@ -42,6 +56,9 @@ function App() {
   const [showMacd, setShowMacd] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
   const [error, setError] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [compare, setCompare] = useState<CompareResponse | null>(null);
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([]);
 
   const socket: Socket = useMemo(() => io(API_URL), []);
 
@@ -67,8 +84,13 @@ function App() {
       });
     });
 
+    socket.on("webhook-event", (event: WebhookEvent) => {
+      setWebhookEvents((prev) => [event, ...prev].slice(0, 10));
+    });
+
     return () => {
       socket.off("tick");
+      socket.off("webhook-event");
     };
   }, [socket, symbol]);
 
@@ -90,12 +112,55 @@ function App() {
     load();
   }, [symbol]);
 
+  useEffect(() => {
+    const loadCompare = async () => {
+      const [compareRes, eventsRes] = await Promise.all([
+        axios.get<CompareResponse>(`${API_URL}/api/realtime/compare`),
+        axios.get<{ events: WebhookEvent[] }>(`${API_URL}/api/webhooks/events`),
+      ]);
+      setCompare(compareRes.data);
+      setWebhookEvents(eventsRes.data.events.slice(0, 10));
+    };
+    loadCompare().catch(() => {
+      // skip compare panel on connectivity errors
+    });
+  }, []);
+
+  const submitTestWebhook = async () => {
+    try {
+      await axios.post(
+        `${API_URL}/api/webhooks/finnhub/test`,
+        { symbol, triggeredFromUi: true },
+        {
+          params: { secret: webhookSecret || undefined },
+          headers: webhookSecret ? { "x-webhook-secret": webhookSecret } : undefined,
+        }
+      );
+    } catch {
+      setError("웹훅 테스트 호출 실패: secret 또는 서버 설정을 확인해주세요.");
+    }
+  };
+
+  const priceDelta =
+    points.length > 1 ? lastPrice! - points[Math.max(0, points.length - 2)].close : 0;
+  const priceDeltaPct =
+    points.length > 1 && lastPrice
+      ? (priceDelta / points[Math.max(0, points.length - 2)].close) * 100
+      : 0;
+
   return (
     <main className="app">
-      <h1>Realtime Stock Viewer</h1>
-      <p className="sub">
-        실시간 체결 + 기술적 분석(RSI/MACD/Volume) 확인 대시보드
-      </p>
+      <header className="hero">
+        <p className="eyebrow">Realtime market tracker</p>
+        <h1>{symbol}</h1>
+        <div className="price-row">
+          <strong>{lastPrice ? `$${lastPrice.toFixed(2)}` : "-"}</strong>
+          <span className={priceDelta >= 0 ? "up" : "down"}>
+            {priceDelta >= 0 ? "+" : ""}
+            {priceDelta.toFixed(2)} ({priceDeltaPct.toFixed(2)}%)
+          </span>
+        </div>
+      </header>
 
       <section className="controls">
         <form
@@ -109,9 +174,9 @@ function App() {
             onChange={(e) => setInputSymbol(e.target.value)}
             placeholder="AAPL, TSLA, NVDA..."
           />
-          <button type="submit">심볼 변경</button>
+          <button type="submit">Search</button>
         </form>
-        <div className="toggles">
+        <div className="toggles robinhood-toggle">
           <label>
             <input
               type="checkbox"
@@ -139,24 +204,26 @@ function App() {
         </div>
       </section>
 
-      <section className="headline">
-        <strong>{symbol}</strong>
-        <span>
-          Last: {lastPrice ? `$${lastPrice.toFixed(2)}` : "-"}
-        </span>
-      </section>
-
       {error && <p className="error">{error}</p>}
 
       <article className="chart-card">
-        <h2>Price</h2>
+        <div className="chart-header">
+          <h2>Price Chart</h2>
+          <div className="range-pills">
+            <span className="pill active">1D</span>
+            <span className="pill">1W</span>
+            <span className="pill">1M</span>
+            <span className="pill">3M</span>
+            <span className="pill">YTD</span>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={points}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid stroke="#1f2937" strokeDasharray="2 3" />
             <XAxis dataKey="time" tickFormatter={formatTime} minTickGap={24} />
             <YAxis domain={["dataMin - 1", "dataMax + 1"]} />
             <Tooltip labelFormatter={(v) => formatTime(Number(v))} />
-            <Line dataKey="close" stroke="#2563eb" dot={false} strokeWidth={2} />
+            <Line dataKey="close" stroke="#18c964" dot={false} strokeWidth={2.5} />
           </LineChart>
         </ResponsiveContainer>
       </article>
@@ -207,6 +274,49 @@ function App() {
           </ResponsiveContainer>
         </article>
       )}
+
+      <article className="chart-card compare-card">
+        <h2>API Key vs Webhook</h2>
+        <p className="subtle">
+          API key는 클라이언트가 실시간 스트림을 당겨오는 방식이고, webhook은 외부 이벤트가 서버로 들어오는 방식입니다.
+        </p>
+        <div className="compare-grid">
+          <div className="compare-box">
+            <h3>API Key (WebSocket)</h3>
+            <p>Status: {compare?.websocket?.enabled ? "Enabled" : "Disabled"}</p>
+            <p>Use case: 초단위 가격 업데이트/차트 반영</p>
+          </div>
+          <div className="compare-box">
+            <h3>Webhook (HTTP callback)</h3>
+            <p>Status: {compare?.webhook?.enabled ? "Enabled" : "Disabled"}</p>
+            <p>Use case: 알림/신호 수신, 자동 매매 파이프라인 트리거</p>
+          </div>
+        </div>
+
+        <div className="webhook-tools">
+          <input
+            value={webhookSecret}
+            onChange={(e) => setWebhookSecret(e.target.value)}
+            placeholder="Webhook secret (optional)"
+          />
+          <button type="button" onClick={submitTestWebhook}>
+            Send test webhook
+          </button>
+        </div>
+
+        <div className="events">
+          {webhookEvents.length === 0 ? (
+            <p className="subtle">아직 수신된 webhook 이벤트가 없습니다.</p>
+          ) : (
+            webhookEvents.map((event) => (
+              <div className="event-item" key={event.id}>
+                <strong>{event.source}</strong>
+                <span>{new Date(event.receivedAt).toLocaleString()}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </article>
     </main>
   );
 }
