@@ -22,11 +22,11 @@ jobs:
             frontend/package-lock.json
 
       - name: Install backend deps
-        run: npm ci
+        run: npm ci --include=dev
         working-directory: backend
 
       - name: Install frontend deps
-        run: npm ci
+        run: npm ci --include=dev
         working-directory: frontend
 
       - name: Backend typecheck and tests
