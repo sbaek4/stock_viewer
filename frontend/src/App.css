@@ -1,0 +1,66 @@
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.sub {
+  margin-top: -4px;
+  color: #4b5563;
+}
+
+.controls {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+}
+
+input {
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+
+button {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #1d4ed8;
+  color: white;
+  cursor: pointer;
+}
+
+.toggles {
+  display: flex;
+  gap: 16px;
+  color: #374151;
+}
+
+.headline {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+.chart-card {
+  margin-top: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #ffffff;
+}
