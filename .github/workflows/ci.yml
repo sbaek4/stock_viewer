@@ -17,22 +17,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install backend deps
-        run: npm ci
-        working-directory: backend
-
-      - name: Install frontend deps
-        run: npm ci
-        working-directory: frontend
+      - name: Install workspace deps (including devDependencies)
+        run: npm ci --include=dev
 
       - name: Backend typecheck and tests
-        run: npm run typecheck && npm run test
-        working-directory: backend
+        run: npm run typecheck -w backend && npm run test -w backend
 
       - name: Frontend lint, test, build
-        run: npm run lint && npm run test && npm run build
-        working-directory: frontend
+        run: npm run lint -w frontend && npm run test -w frontend && npm run build -w frontend

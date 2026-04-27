@@ -6,3 +6,7 @@ backend/node_modules
 backend/.env
 frontend/node_modules
 frontend/.env
+terraform/.terraform
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
