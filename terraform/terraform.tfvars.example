@@ -1,0 +1,2 @@
+project_name = "stock-viewer"
+aws_region   = "us-east-1"
