@@ -122,6 +122,8 @@ button {
   border: 1px solid #1f2937;
   padding: 4px 8px;
   border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .pill.active {
@@ -176,4 +178,14 @@ button {
   border: 1px solid #1f2937;
   border-radius: 8px;
   padding: 8px 10px;
+}
+
+.event-summary {
+  margin: 6px 0;
+  color: #d1d5db;
+}
+
+.event-meta {
+  color: #9ca3af;
+  font-size: 12px;
 }

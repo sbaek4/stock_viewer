@@ -41,6 +41,12 @@ type WebhookEvent = {
   receivedAt: number;
   source: string;
   payload: unknown;
+  tick?: {
+    symbol: string;
+    price: number;
+    volume: number;
+    time: number;
+  };
 };
 
 function toCandle(raw: any): Candle[] {
@@ -74,11 +80,12 @@ function withIndicators(candles: Candle[]) {
   return candles.map((candle, index) => {
     const rsiIndex = index - (rsiPeriod - 1);
     const macdIndex = index - (26 - 1);
+    const rsiPoint = rsiIndex >= 0 ? rsiValues[rsiIndex] : undefined;
     const macdPoint = macdIndex >= 0 ? macdValues[macdIndex] : undefined;
     return {
       ...candle,
       volume: volumes[index],
-      rsi: rsiIndex >= 0 ? Number(rsiValues[rsiIndex].toFixed(2)) : null,
+      rsi: rsiPoint !== undefined ? Number(rsiPoint.toFixed(2)) : null,
       macd:
         macdPoint?.MACD !== undefined ? Number(macdPoint.MACD.toFixed(4)) : null,
       signal:
@@ -147,6 +154,39 @@ export function createStockServer({
   function verifyWebhookSecret(secret: string | undefined) {
     if (!FINNHUB_WEBHOOK_SECRET) return true;
     return secret === FINNHUB_WEBHOOK_SECRET;
+  }
+
+  function extractTick(payload: any): WebhookEvent["tick"] | undefined {
+    if (!payload || typeof payload !== "object") return undefined;
+
+    if (
+      typeof payload.symbol === "string" &&
+      typeof payload.price === "number" &&
+      typeof payload.time === "number"
+    ) {
+      return {
+        symbol: payload.symbol.toUpperCase(),
+        price: payload.price,
+        volume: Number(payload.volume ?? 0),
+        time: payload.time,
+      };
+    }
+
+    const firstTrade = Array.isArray(payload.data) ? payload.data[0] : undefined;
+    if (
+      firstTrade &&
+      typeof firstTrade.s === "string" &&
+      typeof firstTrade.p === "number"
+    ) {
+      return {
+        symbol: firstTrade.s.toUpperCase(),
+        price: firstTrade.p,
+        volume: Number(firstTrade.v ?? 0),
+        time: Math.floor((firstTrade.t ?? Date.now()) / 1000),
+      };
+    }
+
+    return undefined;
   }
 
   function ensureFinnhubConnection() {
@@ -258,6 +298,89 @@ export function createStockServer({
     }
   });
 
+  app.get("/api/quote/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+
+      if (FINNHUB_API_KEY) {
+        const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
+          symbol
+        )}&token=${encodeURIComponent(FINNHUB_API_KEY)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          return res.status(502).json({ message: "Failed to fetch Finnhub quote" });
+        }
+        const data = (await response.json()) as { c?: number; t?: number };
+        return res.json({
+          symbol,
+          price: Number(data.c ?? 0),
+          time: Number(data.t ?? Math.floor(Date.now() / 1000)),
+          source: "finnhub-quote",
+        });
+      }
+
+      const fallback = await (yf as any).chart(symbol, {
+        period1: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        period2: new Date(),
+        interval: "1m",
+      });
+      const candles = toCandle(fallback);
+      const latest = candles[candles.length - 1];
+      if (!latest) {
+        return res.status(404).json({ message: "No quote data available" });
+      }
+      return res.json({
+        symbol,
+        price: latest.close,
+        time: latest.time,
+        source: "yahoo-quote-fallback",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: "Failed to fetch realtime quote",
+        error: (error as Error).message,
+      });
+    }
+  });
+
+  app.get("/api/orderbook/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      if (!FINNHUB_API_KEY) {
+        return res.status(400).json({
+          message: "Orderbook endpoint requires FINNHUB_API_KEY",
+        });
+      }
+      const url = `https://finnhub.io/api/v1/stock/bidask?symbol=${encodeURIComponent(
+        symbol
+      )}&token=${encodeURIComponent(FINNHUB_API_KEY)}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(502).json({ message: "Failed to fetch orderbook" });
+      }
+      const data = (await response.json()) as {
+        a?: number;
+        b?: number;
+        av?: number;
+        bv?: number;
+        t?: number;
+      };
+      return res.json({
+        symbol,
+        ask: Number(data.a ?? 0),
+        bid: Number(data.b ?? 0),
+        askVolume: Number(data.av ?? 0),
+        bidVolume: Number(data.bv ?? 0),
+        time: Number(data.t ?? Math.floor(Date.now() / 1000)),
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: "Failed to fetch orderbook",
+        error: (error as Error).message,
+      });
+    }
+  });
+
   app.post("/api/webhooks/finnhub", (req, res) => {
     const secret = String(req.headers["x-finnhub-secret"] ?? "");
     if (!verifyWebhookSecret(secret)) {
@@ -272,6 +395,7 @@ export function createStockServer({
       receivedAt: Date.now(),
       source: "finnhub-webhook",
       payload: req.body,
+      tick: extractTick(req.body),
     };
     setImmediate(() => {
       webhookEvents.unshift(event);
@@ -293,10 +417,14 @@ export function createStockServer({
       source: "local-test-webhook",
       payload: {
         symbol: req.body?.symbol ?? "AAPL",
+        price: Number(req.body?.price ?? (270 + Math.random() * 5).toFixed(2)),
+        time: Math.floor(Date.now() / 1000),
+        volume: Number(req.body?.volume ?? Math.floor(Math.random() * 5000)),
         message: "Simulated webhook event",
         ...req.body,
       },
     };
+    event.tick = extractTick(event.payload);
     webhookEvents.unshift(event);
     trimWebhookEvents();
     lastWebhookAt = event.receivedAt;
